@@ -3,8 +3,8 @@ package cmd
 import (
 	"fmt"
 
-	"sekret/pkg/dotenv"
-	"sekret/pkg/k8s"
+	"github.com/yquansah/sekret/pkg/dotenv"
+	"github.com/yquansah/sekret/pkg/k8s"
 
 	"github.com/spf13/cobra"
 )

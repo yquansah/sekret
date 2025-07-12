@@ -1,4 +1,4 @@
-module sekret
+module github.com/yquansah/sekret
 
 go 1.24.3
 

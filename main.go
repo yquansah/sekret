@@ -1,6 +1,6 @@
 package main
 
-import "sekret/cmd"
+import "github.com/yquansah/sekret/cmd"
 
 func main() {
 	cmd.Execute()

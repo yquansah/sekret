@@ -196,4 +196,4 @@ Successfully deleted 2 key(s) from secret 'my-secret' in namespace 'default'
 
 ## License
 
-[Add your preferred license here]
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

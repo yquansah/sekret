@@ -1,6 +1,6 @@
 # sekret
 
-A CLI tool that simplifies Kubernetes secret management by reading environment variables from dotenv files and automatically creating or updating secrets in your cluster.
+A CLI tool that simplifies Kubernetes secret management. It can create or update secrets from dotenv files, list existing secret contents, and delete specific keys from secrets.
 
 ## Background
 
@@ -16,13 +16,12 @@ This process is error-prone and time-consuming, especially when dealing with mul
 
 ## What it does
 
-sekret reads key-value pairs from a dotenv file and creates or updates a Kubernetes secret with those values. It handles:
+sekret provides comprehensive Kubernetes secret management capabilities:
 
-- ✅ Automatic base64 encoding of values
-- ✅ Creating new secrets if they don't exist
-- ✅ Updating existing secrets (merge or replace modes)
-- ✅ Proper kubeconfig authentication
-- ✅ Detailed feedback on what was modified
+- ✅ **Create/Update**: Read from dotenv files and create or update secrets with automatic base64 encoding
+- ✅ **List**: Display secret contents in JSON format with base64 decoded values
+- ✅ **Delete Keys**: Remove specific keys from secrets with interactive or non-interactive modes
+- ✅ **Detailed Feedback**: Reports on what was modified in each operation
 
 ## Installation
 
@@ -48,25 +47,55 @@ This will install sekret to your `~/go/bin` directory. Make sure `~/go/bin` is i
 
 ## Usage
 
-### Basic Usage
+sekret provides three main commands: `upsert`, `list`, and `delete-keys`.
 
-```bash
-sekret upsert my-secret --namespace default --env-file .env
-```
+### Global Flags
 
-### Command Syntax
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--kubeconfig` | `~/.kube/config` | Path to kubeconfig file |
+
+### Command: upsert
+
+Create or update secrets from dotenv files.
 
 ```bash
 sekret upsert [secret-name] [flags]
 ```
 
-### Flags
-
+#### Flags
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
 | `--namespace` | `-n` | `default` | Kubernetes namespace |
 | `--env-file` | `-f` | `.env` | Path to dotenv file |
 | `--replace` | | `false` | Replace all existing values instead of merging |
+
+### Command: list
+
+Display secret contents in JSON format with decoded values.
+
+```bash
+sekret list [secret-name] [flags]
+```
+
+#### Flags
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--namespace` | `-n` | `default` | Kubernetes namespace |
+
+### Command: delete-keys
+
+Delete specific keys from a secret (interactive or non-interactive).
+
+```bash
+sekret delete-keys [secret-name] [flags]
+```
+
+#### Flags
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--namespace` | `-n` | `default` | Kubernetes namespace |
+| `--keys` | | | Comma-separated list of keys to delete (non-interactive mode) |
 
 ### Examples
 
@@ -75,21 +104,42 @@ sekret upsert [secret-name] [flags]
 sekret upsert my-app-secret --namespace production --env-file .env.prod
 ```
 
-If the secret already exists, new keys from `.env.prod` will be added and existing keys will be updated. Keys not in the `.env.prod` file will remain unchanged.
-
 #### Replace all secret values
 ```bash
 sekret upsert my-app-secret --env-file .env --replace
 ```
 
-This will completely replace the secret's data with only the values from `.env`. Any existing keys not in the `.env` file will be removed.
-
-#### Use default settings
+#### List secret contents
 ```bash
-sekret upsert my-secret
+sekret list my-secret --namespace production
 ```
 
-This reads from `./.env` and creates/updates the secret in the `default` namespace.
+Output:
+```json
+{
+  "data": [
+    {"key": "DATABASE_URL", "value": "postgresql://user:password@localhost:5432/mydb"},
+    {"key": "API_KEY", "value": "secret-api-key-123"}
+  ]
+}
+```
+
+#### Delete keys interactively
+```bash
+sekret delete-keys my-secret --namespace production
+```
+
+This will show a menu to select which key to delete and confirm the action.
+
+#### Delete specific keys
+```bash
+sekret delete-keys my-secret --namespace production --keys API_KEY,OLD_TOKEN
+```
+
+#### Use custom kubeconfig
+```bash
+sekret list my-secret --kubeconfig /path/to/custom/kubeconfig
+```
 
 ## Dotenv File Format
 
@@ -104,31 +154,44 @@ REDIS_URL=redis://localhost:6379
 
 ## Behavior
 
-### Merge Mode (Default)
+### Upsert Command
 
-When you run `sekret upsert` without `--replace`:
-
+#### Merge Mode (Default)
 - **New secret**: Creates the secret with all key-value pairs from the dotenv file
-- **Existing secret**: Adds new keys and updates existing keys from the dotenv file, preserves other existing keys
+- **Existing secret**: Adds new keys and updates existing keys, preserves other existing keys
 
-### Replace Mode
+#### Replace Mode
+- **New secret**: Creates the secret with all key-value pairs from the dotenv file  
+- **Existing secret**: Completely replaces the secret's data with only values from the dotenv file
 
-When you run `sekret upsert --replace`:
+### List Command
 
-- **New secret**: Creates the secret with all key-value pairs from the dotenv file
-- **Existing secret**: Completely replaces the secret's data with only the values from the dotenv file
+- Retrieves all key-value pairs from the specified secret
+- Automatically decodes base64 values for display
+- Returns data in JSON format with `{"key": "...", "value": "..."}` structure
 
-### Key Modification Counting
+### Delete Keys Command
 
-sekret tracks and reports the number of keys that were actually modified:
+#### Interactive Mode (default)
+- Lists all available keys in the secret
+- Prompts user to select which key to delete
+- Asks for confirmation before deletion
 
-- **Merge mode**: Counts only keys that were added or had their values changed
-- **Replace mode**: Counts all keys from the dotenv file
+#### Non-Interactive Mode (`--keys` flag)
+- Deletes specified comma-separated keys directly
+- Reports the number of keys successfully deleted
 
-Example output:
+### Output Messages
+
+sekret provides clear feedback on operations:
+
 ```bash
+# Upsert examples
 Successfully upserted 3 key(s) for secret 'my-secret' in namespace 'default'
 Successfully replaced 5 key(s) for secret 'my-secret' in namespace 'default'
+
+# Delete examples  
+Successfully deleted 2 key(s) from secret 'my-secret' in namespace 'default'
 ```
 
 ## License

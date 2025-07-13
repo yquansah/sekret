@@ -38,7 +38,7 @@ Example:
 			return fmt.Errorf("no environment variables found in %s", envFile)
 		}
 
-		k8sClient, err := k8s.NewClient()
+		k8sClient, err := k8s.NewClient(kubeconfig)
 		if err != nil {
 			return fmt.Errorf("failed to create Kubernetes client: %w", err)
 		}

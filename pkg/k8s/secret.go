@@ -3,6 +3,7 @@ package k8s
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
@@ -15,8 +16,12 @@ type Client struct {
 	clientset *kubernetes.Clientset
 }
 
-func NewClient() (*Client, error) {
-	config, err := clientcmd.BuildConfigFromFlags("", clientcmd.RecommendedHomeFile)
+func NewClient(kubeconfigPath string) (*Client, error) {
+	if kubeconfigPath == "" {
+		kubeconfigPath = clientcmd.RecommendedHomeFile
+	}
+	
+	config, err := clientcmd.BuildConfigFromFlags("", kubeconfigPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build kubeconfig: %w", err)
 	}
@@ -77,4 +82,55 @@ func (c *Client) UpsertSecret(ctx context.Context, name, namespace string, envVa
 	}
 
 	return keysModified, nil
+}
+
+func (c *Client) GetSecretData(ctx context.Context, name, namespace string) (map[string]string, error) {
+	secret, err := c.clientset.CoreV1().Secrets(namespace).Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get secret: %w", err)
+	}
+
+	data := make(map[string]string)
+	for key, value := range secret.Data {
+		// Kubernetes automatically base64 encodes secret data, so we need to decode it
+		decodedValue, err := base64.StdEncoding.DecodeString(string(value))
+		if err != nil {
+			// If decoding fails, use the raw value (in case it wasn't base64 encoded)
+			data[key] = string(value)
+		} else {
+			data[key] = string(decodedValue)
+		}
+	}
+
+	return data, nil
+}
+
+func (c *Client) DeleteKeysFromSecret(ctx context.Context, name, namespace string, keysToDelete []string) (int, error) {
+	secret, err := c.clientset.CoreV1().Secrets(namespace).Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		return 0, fmt.Errorf("failed to get secret: %w", err)
+	}
+
+	if secret.Data == nil {
+		return 0, fmt.Errorf("secret has no data")
+	}
+
+	var keysDeleted int
+	for _, key := range keysToDelete {
+		if _, exists := secret.Data[key]; exists {
+			delete(secret.Data, key)
+			keysDeleted++
+		}
+	}
+
+	if keysDeleted == 0 {
+		return 0, fmt.Errorf("none of the specified keys exist in the secret")
+	}
+
+	_, err = c.clientset.CoreV1().Secrets(namespace).Update(ctx, secret, metav1.UpdateOptions{})
+	if err != nil {
+		return 0, fmt.Errorf("failed to update secret: %w", err)
+	}
+
+	return keysDeleted, nil
 }

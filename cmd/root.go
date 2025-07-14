@@ -28,8 +28,10 @@ func Execute() {
 }
 
 func init() {
+	rootCmd.Version = GetVersion()
 	rootCmd.PersistentFlags().StringVar(&kubeconfig, "kubeconfig", clientcmd.RecommendedHomeFile, "Path to kubeconfig file")
 	rootCmd.AddCommand(upsertCmd)
 	rootCmd.AddCommand(listCmd)
 	rootCmd.AddCommand(deleteKeysCmd)
+	rootCmd.AddCommand(versionCmd)
 }
